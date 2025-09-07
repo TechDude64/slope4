@@ -134,7 +134,7 @@ const Game = ({ onShowLeaderboard }) => {
       // Don't handle game keys when typing in input fields
       if (e.target.tagName === 'INPUT') return
 
-      if (!running && !gameOver) {
+      if ((!running && !gameOver) && e.code === 'Space') {
         reset()
         return
       }
@@ -403,7 +403,7 @@ const Game = ({ onShowLeaderboard }) => {
               Tip: the game gets faster the longer you last.
             </p>
             <p style={{ margin: '6px 0', opacity: .7 }}>
-              Press any key to start
+              Press SPACE to start
             </p>
           </div>
         </div>
