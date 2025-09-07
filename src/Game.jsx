@@ -131,6 +131,9 @@ const Game = ({ onShowLeaderboard }) => {
 
     // Input handling
     const handleKeyDown = (e) => {
+      // Don't handle game keys when typing in input fields
+      if (e.target.tagName === 'INPUT') return
+
       if (!running && !gameOver) {
         reset()
         return
@@ -331,38 +334,40 @@ const Game = ({ onShowLeaderboard }) => {
             <p style={{ margin: '6px 0', opacity: .9 }}>
               Final Score: {score}
             </p>
-            <div style={{ margin: '16px 0' }}>
-              <input
-                type="text"
-                placeholder="Enter your name"
-                value={playerName}
-                onChange={(e) => setPlayerName(e.target.value)}
-                maxLength={20}
-                style={{
-                  padding: '8px',
-                  borderRadius: '4px',
-                  border: '1px solid #ccc',
-                  marginRight: '8px',
-                  fontSize: '14px'
-                }}
-              />
-              <button
-                onClick={handleSubmitScore}
-                disabled={submitting || !playerName.trim()}
-                style={{
-                  padding: '8px 16px',
-                  background: '#00ffb3',
-                  border: 'none',
-                  borderRadius: '4px',
-                  color: '#000',
-                  cursor: submitting || !playerName.trim() ? 'not-allowed' : 'pointer',
-                  fontSize: '14px',
-                  opacity: submitting || !playerName.trim() ? 0.6 : 1
-                }}
-              >
-                {submitting ? 'Submitting...' : 'Submit to Leaderboard'}
-              </button>
-            </div>
+            {score > 30 && (
+              <div style={{ margin: '16px 0' }}>
+                <input
+                  type="text"
+                  placeholder="Enter your name"
+                  value={playerName}
+                  onChange={(e) => setPlayerName(e.target.value)}
+                  maxLength={20}
+                  style={{
+                    padding: '8px',
+                    borderRadius: '4px',
+                    border: '1px solid #ccc',
+                    marginRight: '8px',
+                    fontSize: '14px'
+                  }}
+                />
+                <button
+                  onClick={handleSubmitScore}
+                  disabled={submitting || !playerName.trim()}
+                  style={{
+                    padding: '8px 16px',
+                    background: '#00ffb3',
+                    border: 'none',
+                    borderRadius: '4px',
+                    color: '#000',
+                    cursor: submitting || !playerName.trim() ? 'not-allowed' : 'pointer',
+                    fontSize: '14px',
+                    opacity: submitting || !playerName.trim() ? 0.6 : 1
+                  }}
+                >
+                  {submitting ? 'Submitting...' : 'Submit to Leaderboard'}
+                </button>
+              </div>
+            )}
             <p style={{ margin: '6px 0', opacity: .7 }}>
               Press SPACE to restart
             </p>
