@@ -101,7 +101,17 @@ vite.config.js       # Vite configuration
 - **Vite** - Build tool and development server
 - **Three.js** - 3D graphics library
 - **Supabase** - Backend and database
+- **Electron** - Cross-platform desktop app framework
 - **ESLint** - Code linting
+
+## Deployment Options
+
+This application supports two deployment methods:
+
+1. **Web Version**: Runs in any modern web browser
+2. **Desktop Version**: Native desktop application using Electron
+
+Both versions share the same codebase and functionality, allowing users to choose their preferred platform.
 
 ## Customization
 
@@ -114,11 +124,39 @@ You can customize various aspects of the game:
 
 ## Building for Production
 
+### Web Version
 ```bash
 npm run build
 ```
 
 The built files will be in the `dist/` directory.
+
+### Desktop Version (Electron)
+```bash
+npm run dist
+```
+
+This will create platform-specific installers in the `dist/` directory.
+
+## Running the Application
+
+### Web Version
+```bash
+npm run dev
+```
+Open your browser to `http://localhost:5173`
+
+### Desktop Version
+```bash
+npm run electron-dev
+```
+This will start both the Vite dev server and Electron app simultaneously.
+
+For production desktop app:
+```bash
+npm run electron
+```
+(Note: Requires building the app first with `npm run build`)
 
 ## Troubleshooting
 

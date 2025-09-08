@@ -10,6 +10,13 @@ const Game = ({ onShowLeaderboard }) => {
   const [showGameOverUI, setShowGameOverUI] = useState(false)
   const [playerName, setPlayerName] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const [showCheatMessage, setShowCheatMessage] = useState(false)
+  const [cheatMessage, setCheatMessage] = useState('')
+  const [cheatWasUsedThisGame, setCheatWasUsedThisGame] = useState(false)
+  const [scoreMultiplier, setScoreMultiplier] = useState(1)
+  const [speedMultiplier, setSpeedMultiplier] = useState(1)
+  const scoreMultiplierRef = useRef(1)
+  const speedMultiplierRef = useRef(1)
 
   useEffect(() => {
     if (!mountRef.current) return
@@ -101,6 +108,10 @@ const Game = ({ onShowLeaderboard }) => {
     let speed = 0.5
     let t = 0
     let currentScore = 0
+    const cheatKeys = new Set(['b', 'e', 'n'])
+    const pressedKeys = new Set()
+    let cheatActive = false
+    let cheatKeysWerePressed = false
 
     function reset() {
       obstacles.forEach(o => scene.remove(o))
@@ -117,6 +128,10 @@ const Game = ({ onShowLeaderboard }) => {
       setGameOver(false)
       setShowGameOverUI(false)
       running = true
+      pressedKeys.clear()
+      cheatActive = false
+      setShowCheatMessage(false)
+      setCheatWasUsedThisGame(false)
 
       // Reset trail
       trailPoints.length = 0
@@ -134,6 +149,9 @@ const Game = ({ onShowLeaderboard }) => {
       // Don't handle game keys when typing in input fields
       if (e.target.tagName === 'INPUT') return
 
+      const key = e.key.toLowerCase()
+      pressedKeys.add(key)
+
       if ((!running && !gameOver) && e.code === 'Space') {
         reset()
         return
@@ -144,9 +162,47 @@ const Game = ({ onShowLeaderboard }) => {
       }
       if (e.code === 'ArrowLeft' || e.code === 'KeyA') laneTarget = Math.max(-1, laneTarget - 1)
       if (e.code === 'ArrowRight' || e.code === 'KeyD') laneTarget = Math.min(1, laneTarget + 1)
+
+      // Cheat code detection - toggle when all keys are first pressed simultaneously
+      const allCheatKeysPressed = [...cheatKeys].every(k => pressedKeys.has(k))
+
+      if (allCheatKeysPressed && !cheatKeysWerePressed) {
+        // Only allow activation, not deactivation mid-game
+        if (!cheatActive) {
+          // Ask user for speed multiplier
+          const speedMult = parseFloat(prompt("Enter speed multiplier (e.g., 0.5 for half speed, 2 for double speed):", "0.5")) || 1
+          // Ask user for score multiplier
+          const scoreMult = parseFloat(prompt("Enter score multiplier (e.g., 2 for 2x, 5 for 5x):", "3")) || 1
+
+          if (speedMult > 0 && scoreMult > 0) {
+            setSpeedMultiplier(speedMult)
+            setScoreMultiplier(scoreMult)
+            speedMultiplierRef.current = speedMult
+            scoreMultiplierRef.current = scoreMult
+            cheatActive = true
+            setCheatWasUsedThisGame(true)
+            setCheatMessage(`Cheat Activated! Speed: ${speedMult}x, Score: ${scoreMult}x`)
+            setShowCheatMessage(true)
+            setTimeout(() => setShowCheatMessage(false), 3000)
+          }
+        }
+      }
+
+      cheatKeysWerePressed = allCheatKeysPressed
+    }
+
+    const handleKeyUp = (e) => {
+      const key = e.key.toLowerCase()
+      pressedKeys.delete(key)
+
+      // Update cheat key tracking
+      if (cheatKeys.has(key)) {
+        cheatKeysWerePressed = false
+      }
     }
 
     window.addEventListener('keydown', handleKeyDown)
+    window.addEventListener('keyup', handleKeyUp)
 
     // Resize handling
     function onResize() {
@@ -173,7 +229,8 @@ const Game = ({ onShowLeaderboard }) => {
       }
 
       t += dt
-      speed = 0.5 + Math.min(3.5, t * 0.12)
+      const originalSpeed = 0.5 + Math.min(3.5, t * 0.12)
+      speed = cheatActive ? originalSpeed * speedMultiplierRef.current : originalSpeed
 
       groundGroup.children.forEach((tile) => {
         tile.position.z += speed
@@ -213,7 +270,7 @@ const Game = ({ onShowLeaderboard }) => {
         }
       }
 
-      currentScore += speed * dt * 1
+      currentScore += originalSpeed * dt * (cheatActive ? scoreMultiplierRef.current : 1)
       setScore(Math.floor(currentScore))
 
       camera.position.x = player.position.x
@@ -228,6 +285,7 @@ const Game = ({ onShowLeaderboard }) => {
     // Cleanup
     return () => {
       window.removeEventListener('keydown', handleKeyDown)
+      window.removeEventListener('keyup', handleKeyUp)
       window.removeEventListener('resize', onResize)
       cancelAnimationFrame(animationId)
       renderer.dispose()
@@ -237,13 +295,17 @@ const Game = ({ onShowLeaderboard }) => {
   const handleSubmitScore = async () => {
     if (!playerName.trim()) return
 
+    // Prevent score submission if cheat was used
+    if (cheatWasUsedThisGame) {
+      alert("Cheat codes were used! High scores cannot be submitted.")
+      return
+    }
+
     setSubmitting(true)
     await submitScore(playerName.trim(), score)
     setSubmitting(false)
     setShowGameOverUI(false)
   }
-
-
 
   return (
     <div style={{ position: 'relative', width: '100%', height: '100vh', background: '#0a0f14' }}>
@@ -309,6 +371,28 @@ const Game = ({ onShowLeaderboard }) => {
         </button>
       </div>
 
+      {/* Cheat Message */}
+      {showCheatMessage && (
+        <div style={{
+          position: 'fixed',
+          top: '50%',
+          left: '50%',
+          transform: 'translate(-50%, -50%)',
+          color: '#00ffb3',
+          fontSize: '24px',
+          fontWeight: 'bold',
+          textAlign: 'center',
+          background: 'rgba(0,0,0,.8)',
+          padding: '20px',
+          borderRadius: '10px',
+          border: '2px solid #00ffb3',
+          pointerEvents: 'none',
+          zIndex: 1000
+        }}>
+          {cheatMessage}
+        </div>
+      )}
+
       {/* Game Over UI */}
       {showGameOverUI && (
         <div style={{
@@ -334,7 +418,7 @@ const Game = ({ onShowLeaderboard }) => {
             <p style={{ margin: '6px 0', opacity: .9 }}>
               Final Score: {score}
             </p>
-            {score > 30 && (
+            {score > 30 && !cheatWasUsedThisGame && (
               <div style={{ margin: '16px 0' }}>
                 <input
                   type="text"
@@ -367,6 +451,11 @@ const Game = ({ onShowLeaderboard }) => {
                   {submitting ? 'Submitting...' : 'Submit to Leaderboard'}
                 </button>
               </div>
+            )}
+            {cheatWasUsedThisGame && (
+              <p style={{ margin: '16px 0', color: '#ff6b6b', fontWeight: 'bold' }}>
+                ⚠️ Cheat codes were used - score cannot be submitted to leaderboard
+              </p>
             )}
             <p style={{ margin: '6px 0', opacity: .7 }}>
               Press SPACE to restart

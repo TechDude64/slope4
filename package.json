@@ -3,11 +3,17 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
+  "main": "electron.js",
+  "homepage": "./",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "electron": "npx electron .",
+    "electron-dev": "concurrently \"npm run dev\" \"wait-on http://localhost:5173 && npx electron .\"",
+    "build-electron": "npm run build && npx electron-builder",
+    "dist": "npm run build && npx electron-builder --publish=never"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.57.2",
@@ -20,10 +26,34 @@
     "@types/react": "^19.1.10",
     "@types/react-dom": "^19.1.7",
     "@vitejs/plugin-react": "^4.3.0",
+    "concurrently": "^9.2.1",
+    "electron": "^25.0.0",
     "eslint": "^9.33.0",
     "eslint-plugin-react-hooks": "^5.2.0",
     "eslint-plugin-react-refresh": "^0.4.20",
     "globals": "^16.3.0",
-    "vite": "^5.4.0"
+    "vite": "^5.4.0",
+    "wait-on": "^8.0.4"
+  },
+  "build": {
+    "appId": "com.slope.game",
+    "productName": "Slope 4",
+    "directories": {
+      "output": "dist-electron"
+    },
+    "files": [
+      "dist/**/*",
+      "electron.js",
+      "preload.js",
+      "package.json"
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "icon.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    }
   }
 }

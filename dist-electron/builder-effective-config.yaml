@@ -1,0 +1,18 @@
+directories:
+  output: dist-electron
+  buildResources: build
+appId: com.slope.game
+productName: Slope 4
+files:
+  - filter:
+      - dist/**/*
+      - electron.js
+      - preload.js
+      - package.json
+win:
+  target: nsis
+  icon: icon.png
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+electronVersion: 25.9.8
