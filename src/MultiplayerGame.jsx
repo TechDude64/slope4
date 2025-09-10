@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
-import { submitScore } from './supabase';
 
 const WS_URL = import.meta.env.VITE_WS_URL || 'wss://slope-multiplayer.onrender.com';
 
@@ -8,16 +7,15 @@ const ballGeo = new THREE.SphereGeometry(0.9, 32, 32);
 const boxGeo = new THREE.BoxGeometry(1.8, 1.8, 1.8);
 const boxMat = new THREE.MeshStandardMaterial({ color: 0xff2e63, emissive: 0xff2e63, emissiveIntensity: 0.25, metalness: 0.5, roughness: 0.4 });
 
-const MultiplayerGame = ({ onShowLeaderboard, ballColor, gameId, playerId, nickname, ws, onReturnToLobby }) => {
+const MultiplayerGame = ({ ballColor, gameId, playerId, nickname, ws, onReturnToLobby }) => {
     const mountRef = useRef(null);
     const [score, setScore] = useState(0);
     const [showGameOverUI, setShowGameOverUI] = useState(false);
-    const [playerName, setPlayerName] = useState('');
-    const [submitting, setSubmitting] = useState(false);
 
 
     const playerMeshes = useRef({}); // Includes local player and others
     const obstacleMeshes = useRef({});
+    const trailMeshes = useRef({}); // Trail meshes for each player
 
     useEffect(() => {
         if (!mountRef.current || !playerId) return;
@@ -81,10 +79,15 @@ const MultiplayerGame = ({ onShowLeaderboard, ballColor, gameId, playerId, nickn
         const updateScene = (players, obstacles, serverScore) => {
             const allPlayerIds = new Set(Object.keys(players));
 
+            // Clean up meshes for players who left
             for (const id in playerMeshes.current) {
                 if (!allPlayerIds.has(id)) {
                     scene.remove(playerMeshes.current[id]);
                     delete playerMeshes.current[id];
+                    if (trailMeshes.current[id]) {
+                        scene.remove(trailMeshes.current[id]);
+                        delete trailMeshes.current[id];
+                    }
                 }
             }
 
@@ -94,6 +97,10 @@ const MultiplayerGame = ({ onShowLeaderboard, ballColor, gameId, playerId, nickn
                     if (playerMeshes.current[id]) {
                         scene.remove(playerMeshes.current[id]);
                         delete playerMeshes.current[id];
+                    }
+                    if (trailMeshes.current[id]) {
+                        scene.remove(trailMeshes.current[id]);
+                        delete trailMeshes.current[id];
                     }
                     continue;
                 }
@@ -106,8 +113,33 @@ const MultiplayerGame = ({ onShowLeaderboard, ballColor, gameId, playerId, nickn
                     mesh.castShadow = true;
                     scene.add(mesh);
                     playerMeshes.current[id] = mesh;
+
+                    // Create trail for new player
+                    const trailPoints = [];
+                    const trailLength = 10;
+                    for (let i = 0; i < trailLength; i++) {
+                        trailPoints.push(new THREE.Vector3(p.x, p.y - 0.5, p.z));
+                    }
+                    const trailCurve = new THREE.CatmullRomCurve3(trailPoints);
+                    const trailGeo = new THREE.TubeGeometry(trailCurve, 64, 0.2, 8, false);
+                    const trailMat = new THREE.MeshBasicMaterial({ color: 0x00d6ff, transparent: true, opacity: 0.25, side: THREE.DoubleSide });
+                    const trailMesh = new THREE.Mesh(trailGeo, trailMat);
+                    scene.add(trailMesh);
+                    trailMeshes.current[id] = { mesh: trailMesh, points: trailPoints };
                 }
                 mesh.position.set(p.x, p.y, p.z);
+
+                // Update trail
+                if (trailMeshes.current[id]) {
+                    const trailData = trailMeshes.current[id];
+                    trailData.points.forEach(point => point.z += 0.1); // Move trail forward
+                    const oldestPoint = trailData.points.shift();
+                    oldestPoint.copy(mesh.position).add(new THREE.Vector3(0, -0.5, 0));
+                    trailData.points.push(oldestPoint);
+                    const updatedCurve = new THREE.CatmullRomCurve3(trailData.points);
+                    trailData.mesh.geometry.dispose();
+                    trailData.mesh.geometry = new THREE.TubeGeometry(updatedCurve, 64, 0.2, 8, false);
+                }
             }
 
             const allObstacleIds = new Set(obstacles.map(o => o.id));
@@ -180,39 +212,47 @@ const MultiplayerGame = ({ onShowLeaderboard, ballColor, gameId, playerId, nickn
         };
     }, [gameId, ballColor, playerId, nickname, ws]);
 
-    const handleSubmitScore = async () => {
-        if (!playerName.trim()) return;
-        setSubmitting(true);
-        await submitScore(playerName.trim(), score);
-        setSubmitting(false);
-        setShowGameOverUI(false);
-    };
+
 
     return (
         <div style={{ position: 'relative', width: '100%', height: '100vh', background: '#0a0f14' }}>
             <canvas ref={mountRef} style={{ position: 'fixed', inset: 0, outline: 'none', width: '100%', height: '100%', objectFit: 'contain' }} tabIndex={0} />
-            <div style={{ position: 'fixed', left: 0, right: 0, top: 0, display: 'flex', justifyContent: 'space-between', padding: '12px 16px', color: '#e6f0ff', fontWeight: 600, pointerEvents: 'none', fontFamily: 'system-ui' }}>
-                <div style={{ fontSize: '20px' }}>Score: <span>{score}</span></div>
-                <button onClick={onShowLeaderboard} style={{ pointerEvents: 'auto', background: 'rgba(0,0,0,.5)', border: '1px solid rgba(255,255,255,.2)', borderRadius: '6px', padding: '6px 12px', cursor: 'pointer', color: '#e6f0ff', fontSize: '14px' }}>
-                    🏆 Leaderboard
-                </button>
+            <div style={{ position: 'fixed', left: 0, right: 0, top: 0, display: 'flex', justifyContent: 'space-between', padding: '12px 16px', color: '#e6f0ff', fontWeight: 600, letterSpacing: '.3px', mixBlendMode: 'difference', pointerEvents: 'none', fontFamily: 'system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif' }}>
+                <div style={{ fontSize: '20px' }}>
+                    Score: <span>{score}</span>
+                </div>
+                <div style={{ fontSize: '14px', opacity: .8 }}>
+                    A/D or ◀︎▶︎ to move • SPACE to restart
+                </div>
             </div>
+
             {showGameOverUI && (
-                <div style={{ position: 'fixed', inset: 0, display: 'grid', placeItems: 'center', pointerEvents: 'none' }}>
-                    <div style={{ color: 'white', textAlign: 'center', background: 'rgba(0,0,0,.35)', backdropFilter: 'blur(6px)', padding: '16px 20px', borderRadius: '16px', pointerEvents: 'auto' }}>
-                        <h1 style={{ margin: '0 0 8px', fontSize: '24px' }}>Game Over</h1>
-                        <p style={{ margin: '6px 0' }}>Final Score: {score}</p>
-                        {score > 30 && (
-                            <div style={{ margin: '16px 0' }}>
-                                <input type="text" placeholder="Enter your name" value={playerName} onChange={(e) => setPlayerName(e.target.value)} maxLength={20} style={{ padding: '8px', borderRadius: '4px', border: '1px solid #ccc', marginRight: '8px' }} />
-                                <button onClick={handleSubmitScore} disabled={submitting || !playerName.trim()} style={{ padding: '8px 16px', background: '#00ffb3', border: 'none', borderRadius: '4px', color: '#000', cursor: 'pointer' }}>
-                                    {submitting ? 'Submitting...' : 'Submit'}
-                                </button>
-                            </div>
-                        )}
-                        <div style={{ margin: '16px 0' }}>
-                            <p style={{ margin: '6px 0', opacity: .7 }}>Automatically returning to lobby...</p>
-                        </div>
+                <div style={{
+                    position: 'fixed',
+                    inset: 0,
+                    display: 'grid',
+                    placeItems: 'center',
+                    pointerEvents: 'none'
+                }}>
+                    <div style={{
+                        color: 'white',
+                        textAlign: 'center',
+                        background: 'rgba(0,0,0,.35)',
+                        backdropFilter: 'blur(6px)',
+                        padding: '16px 20px',
+                        borderRadius: '16px',
+                        boxShadow: '0 10px 30px rgba(0,0,0,.3)',
+                        pointerEvents: 'auto'
+                    }}>
+                        <h1 style={{ margin: '0 0 8px', fontSize: '24px', letterSpacing: '.5px' }}>
+                            Game Over
+                        </h1>
+                        <p style={{ margin: '6px 0', opacity: .9 }}>
+                            Final Score: {score}
+                        </p>
+                        <p style={{ margin: '6px 0', opacity: .7 }}>
+                            Press SPACE to restart
+                        </p>
                     </div>
                 </div>
             )}
