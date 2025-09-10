@@ -12,7 +12,7 @@ function App() {
   const [showMainMenu, setShowMainMenu] = useState(true)
   const [showLobby, setShowLobby] = useState(false)
   const [showPartyRoom, setShowPartyRoom] = useState(false) // New state for PartyRoom
-  const [ballColor, setBallColor] = useState('#FF0000') // Default ball color
+  const [ballColor, setBallColor] = useState('#FF0000') // Default ball colour
   const [gameId, setGameId] = useState(null)
   const [isHost, setIsHost] = useState(false)
   const playerId = useRef(uuidv4()) // Stable player ID for the session
