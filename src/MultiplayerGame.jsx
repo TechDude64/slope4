@@ -122,11 +122,12 @@ const MultiplayerGame = ({ ballColor, gameId, playerId, nickname, ws, onReturnTo
                     mesh.userData.targetPosition = new THREE.Vector3(p.x, p.y, p.z);
                     mesh.userData.currentPosition = new THREE.Vector3(p.x, p.y, p.z);
 
-                    // Create trail for new player
+                    // Create trail for new player - initialize points behind the player
                     const trailPoints = [];
                     const trailLength = 10;
                     for (let i = 0; i < trailLength; i++) {
-                        trailPoints.push(new THREE.Vector3(p.x, p.y - 0.5, p.z));
+                        // Position trail points behind the player based on distance
+                        trailPoints.push(new THREE.Vector3(p.x, p.y - 0.5, p.z - (i * 0.5)));
                     }
                     const trailCurve = new THREE.CatmullRomCurve3(trailPoints);
                     const trailGeo = new THREE.TubeGeometry(trailCurve, 64, 0.2, 8, false);
@@ -151,12 +152,22 @@ const MultiplayerGame = ({ ballColor, gameId, playerId, nickname, ws, onReturnTo
                     if (trailUpdateCounter.current >= 3) {
                         trailUpdateCounter.current = 0;
 
-                        // Move existing trail points backward (away from player)
-                        trailData.points.forEach(point => point.z -= 0.3); // Move trail behind player
-
-                        // Remove oldest point and add new point at player's position
+                        // Remove the oldest point (furthest behind)
                         trailData.points.shift();
-                        trailData.points.push(new THREE.Vector3(mesh.position.x, mesh.position.y - 0.5, mesh.position.z));
+
+                        // Shift all remaining points back by one position
+                        for (let i = 0; i < trailData.points.length - 1; i++) {
+                            trailData.points[i].copy(trailData.points[i + 1]);
+                        }
+
+                        // Add new point at the end (closest to player)
+                        if (trailData.points.length > 0) {
+                            trailData.points[trailData.points.length - 1] = new THREE.Vector3(
+                                mesh.position.x,
+                                mesh.position.y - 0.5,
+                                mesh.position.z
+                            );
+                        }
 
                         // Only update geometry when needed
                         const updatedCurve = new THREE.CatmullRomCurve3(trailData.points);
