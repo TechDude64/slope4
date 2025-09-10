@@ -74,7 +74,7 @@ function App() {
       ws.current = null;
     }
     setShowPartyRoom(true); // Show PartyRoom (lobby)
-    setGameId(null); // Clear game ID
+    // Keep the original gameId to return to the same room
   }
 
 

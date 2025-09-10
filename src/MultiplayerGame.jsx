@@ -14,7 +14,7 @@ const MultiplayerGame = ({ onShowLeaderboard, ballColor, gameId, playerId, nickn
     const [showGameOverUI, setShowGameOverUI] = useState(false);
     const [playerName, setPlayerName] = useState('');
     const [submitting, setSubmitting] = useState(false);
-    const [lobbyVotes, setLobbyVotes] = useState({});
+
 
     const playerMeshes = useRef({}); // Includes local player and others
     const obstacleMeshes = useRef({});
@@ -65,14 +65,13 @@ const MultiplayerGame = ({ onShowLeaderboard, ballColor, gameId, playerId, nickn
                 updateScene(players, obstacles, score);
             } else if (message.type === 'gameOver') {
                 setShowGameOverUI(true);
-                setLobbyVotes({}); // Reset lobby votes when game ends
-            } else if (message.type === 'lobbyVotes') {
-                setLobbyVotes(message.payload.votes);
             } else if (message.type === 'returnToLobby') {
-                // All players voted to return to lobby
-                if (onReturnToLobby) {
-                    onReturnToLobby();
-                }
+                // All players died, automatically return to lobby after delay
+                setTimeout(() => {
+                    if (onReturnToLobby) {
+                        onReturnToLobby();
+                    }
+                }, 3000); // 3 seconds delay to show game over UI
             }
         };
 
@@ -135,14 +134,6 @@ const MultiplayerGame = ({ onShowLeaderboard, ballColor, gameId, playerId, nickn
 
         const handleKeyDown = (e) => {
             if (e.target.tagName === 'INPUT') return;
-
-            // Handle space key after game over to vote for returning to lobby
-            if (showGameOverUI && e.code === 'Space') {
-                if (ws && ws.readyState === WebSocket.OPEN) {
-                    ws.send(JSON.stringify({ roomId: gameId, playerId: playerId, action: 'returnToLobby' }));
-                }
-                return;
-            }
 
             if (ws && ws.readyState === WebSocket.OPEN) {
                 if (e.code === 'ArrowLeft' || e.code === 'KeyA') {
@@ -220,13 +211,7 @@ const MultiplayerGame = ({ onShowLeaderboard, ballColor, gameId, playerId, nickn
                             </div>
                         )}
                         <div style={{ margin: '16px 0' }}>
-                            <p style={{ margin: '6px 0', opacity: .7 }}>Press SPACE to return to lobby</p>
-                            {Object.keys(lobbyVotes).length > 0 && (
-                                <p style={{ margin: '6px 0', fontSize: '14px', opacity: .8 }}>
-                                    Players ready: {Object.keys(lobbyVotes).length}
-                                    {lobbyVotes[playerId] && ' (including you)'}
-                                </p>
-                            )}
+                            <p style={{ margin: '6px 0', opacity: .7 }}>Automatically returning to lobby...</p>
                         </div>
                     </div>
                 </div>
