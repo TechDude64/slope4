@@ -1,0 +1,81 @@
+.lobby-container {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(8px);
+  z-index: 1000;
+}
+
+.lobby-card {
+  background: rgba(20, 20, 30, 0.8);
+  padding: 2rem;
+  border-radius: 1rem;
+  color: white;
+  text-align: center;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.lobby-card h1 {
+  margin-top: 0;
+  color: #00d6ff;
+}
+
+.lobby-actions {
+  margin-top: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.host-button {
+  padding: 0.75rem 1.5rem;
+  background: #00d6ff;
+  border: none;
+  border-radius: 0.5rem;
+  color: #000;
+  cursor: pointer;
+  font-size: 1rem;
+  font-weight: bold;
+  transition: background 0.2s;
+}
+
+.host-button:hover {
+  background: #00b8d4;
+}
+
+.join-section {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.join-section input {
+  padding: 0.75rem;
+  border-radius: 0.5rem;
+  border: 1px solid #ccc;
+  font-size: 1rem;
+  width: 250px;
+}
+
+.join-section button {
+  padding: 0.75rem 1.5rem;
+  background: #00ffb3;
+  border: none;
+  border-radius: 0.5rem;
+  color: #000;
+  cursor: pointer;
+  font-size: 1rem;
+  font-weight: bold;
+  transition: background 0.2s;
+}
+
+.join-section button:disabled {
+  background: #555;
+  cursor: not-allowed;
+}
+
+.join-section button:hover:not(:disabled) {
+  background: #00e6a1;
+}

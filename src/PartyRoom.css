@@ -1,0 +1,302 @@
+.party-room-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  background-color: #1a1a1a; /* Darker background */
+  color: #e0e0e0;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  padding: 20px;
+  box-sizing: border-box;
+  overflow-y: auto; /* Allow vertical scrolling for the container */
+}
+
+.party-room-card {
+  background-color: #282c34; /* Slightly lighter card background */
+  padding: 30px;
+  border-radius: 15px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.7);
+  text-align: center;
+  width: 100%;
+  max-width: 900px; /* Increased max-width for horizontal layout */
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 25px;
+  max-height: calc(100vh - 40px); /* Limit card height to viewport minus padding */
+  overflow-y: auto; /* Allow card content to scroll */
+}
+
+.party-room-card h1 {
+  color: #61dafb;
+  margin-bottom: 20px;
+  font-size: 2.5em;
+  text-shadow: 0 0 15px rgba(97, 218, 251, 0.7);
+  letter-spacing: 1px;
+}
+
+.game-id-section {
+  background-color: #1e2127;
+  padding: 15px 20px;
+  border-radius: 10px;
+  margin-bottom: 25px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid #444;
+}
+
+.game-id-section p {
+  margin: 0;
+  font-size: 1em;
+  color: #a0a0a0;
+  font-weight: 500;
+}
+
+.copyable-id {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  width: 100%;
+  justify-content: center;
+}
+
+.game-id-text {
+  background-color: #0d0f12;
+  padding: 10px 15px;
+  border-radius: 7px;
+  font-family: 'Roboto Mono', monospace; /* Monospace font for ID */
+  font-size: 1em;
+  color: #76e8ff; /* Brighter color for ID */
+  flex-grow: 1;
+  text-align: center;
+  overflow-x: auto;
+  white-space: nowrap;
+  border: 1px dashed #555;
+}
+
+.copy-button {
+  background-color: #28a745; /* Green copy button */
+  color: white;
+  border: none;
+  padding: 10px 18px;
+  border-radius: 7px;
+  cursor: pointer;
+  font-size: 1em;
+  font-weight: bold;
+  transition: background-color 0.3s ease, transform 0.2s ease;
+  flex-shrink: 0;
+}
+
+.copy-button:hover {
+  background-color: #218838;
+  transform: translateY(-1px);
+}
+
+.party-content-wrapper {
+  display: flex;
+  flex-direction: row; /* Horizontal layout */
+  gap: 30px;
+  justify-content: space-around;
+  flex-wrap: wrap; /* Allow wrapping on smaller screens */
+}
+
+.player-settings,
+.player-list {
+  background-color: #3a3f47;
+  padding: 20px;
+  border-radius: 10px;
+  flex: 1; /* Take equal space */
+  min-width: 300px; /* Minimum width for each section */
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  border: 1px solid #444;
+}
+
+.player-settings h2,
+.player-list h2 {
+  color: #61dafb;
+  margin-bottom: 15px;
+  font-size: 1.5em;
+  text-shadow: 0 0 8px rgba(97, 218, 251, 0.3);
+}
+
+.player-settings label {
+  font-size: 1em;
+  margin-bottom: 5px;
+  text-align: left;
+  color: #a0a0a0;
+}
+
+.player-settings input[type="text"],
+.player-settings input[type="color"] {
+  padding: 12px;
+  border-radius: 8px;
+  border: 1px solid #555;
+  background-color: #1e2127;
+  color: #e0e0e0;
+  font-size: 1em;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.player-settings input[type="color"] {
+  height: 45px;
+  padding: 5px;
+}
+
+.player-list ul {
+  list-style: none;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.player-list ul {
+  list-style: none;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 300px; /* Limit height for player list */
+  overflow-y: auto; /* Enable scrolling for player list */
+  border: 1px solid #555;
+  border-radius: 8px;
+  padding: 10px;
+}
+
+.player-list li {
+  background-color: #4a4f57;
+  padding: 12px 15px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  font-size: 1em;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+  transition: transform 0.2s ease;
+  gap: 10px;
+}
+
+.player-list li span {
+  font-size: 1.2em;
+}
+
+.player-list li.player-ready {
+  border-left: 5px solid #28a745;
+}
+
+.player-list li:hover {
+  transform: translateY(-3px);
+}
+
+.player-name {
+  font-weight: bold;
+  color: #e0e0e0;
+  flex-grow: 1;
+  margin-right: 10px;
+}
+
+.player-color-preview {
+  width: 25px;
+  height: 25px;
+  border-radius: 50%;
+  border: 2px solid #888;
+  margin-right: 10px;
+  flex-shrink: 0;
+}
+
+.player-status {
+  font-style: italic;
+  color: #bbb;
+  flex-shrink: 0;
+  font-weight: 600;
+}
+
+.player-ready .player-status {
+  color: #28a745; /* Brighter green for ready */
+}
+
+.player-not-ready .player-status {
+  color: #dc3545; /* Brighter red for not ready */
+}
+
+.ready-button {
+  padding: 15px 30px;
+  border: none;
+  border-radius: 10px;
+  font-size: 1.2em;
+  cursor: pointer;
+  transition: background-color 0.3s ease, transform 0.2s ease;
+  margin-top: 25px;
+  width: 100%;
+  box-sizing: border-box;
+  font-weight: bold;
+  letter-spacing: 0.5px;
+}
+
+.ready-button:hover {
+  transform: translateY(-3px);
+}
+
+.ready-button.not-ready {
+  background-color: #dc3545; /* Red for not ready */
+  color: white;
+}
+
+.ready-button.not-ready:hover {
+  background-color: #c82333;
+}
+
+.ready-button.ready {
+  background-color: #28a745; /* Green for ready */
+  color: white;
+}
+
+.ready-button.ready:hover {
+  background-color: #218838;
+}
+
+.start-game-button {
+  background-color: #61dafb; /* A vibrant color for the start button */
+  color: #1a1a1a;
+  border: none;
+  padding: 15px 30px;
+  border-radius: 10px;
+  font-size: 1.2em;
+  cursor: pointer;
+  transition: background-color 0.3s ease, transform 0.2s ease;
+  margin-top: 25px;
+  width: 100%;
+  box-sizing: border-box;
+  font-weight: bold;
+  letter-spacing: 0.5px;
+  box-shadow: 0 5px 15px rgba(97, 218, 251, 0.4);
+}
+
+.start-game-button:hover {
+  background-color: #4ac2e8;
+  transform: translateY(-3px);
+}
+
+.start-game-button:disabled {
+  background-color: #555;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .party-content-wrapper {
+    flex-direction: column; /* Stack vertically on smaller screens */
+  }
+
+  .player-settings,
+  .player-list {
+    min-width: unset; /* Remove min-width constraint */
+    width: 100%;
+  }
+}

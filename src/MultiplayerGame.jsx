@@ -1,0 +1,238 @@
+import { useEffect, useRef, useState } from 'react';
+import * as THREE from 'three';
+import { submitScore } from './supabase';
+
+const WS_URL = import.meta.env.VITE_WS_URL || 'wss://slope-multiplayer.onrender.com';
+
+const ballGeo = new THREE.SphereGeometry(0.9, 32, 32);
+const boxGeo = new THREE.BoxGeometry(1.8, 1.8, 1.8);
+const boxMat = new THREE.MeshStandardMaterial({ color: 0xff2e63, emissive: 0xff2e63, emissiveIntensity: 0.25, metalness: 0.5, roughness: 0.4 });
+
+const MultiplayerGame = ({ onShowLeaderboard, ballColor, gameId, playerId, nickname, ws, onReturnToLobby }) => {
+    const mountRef = useRef(null);
+    const [score, setScore] = useState(0);
+    const [showGameOverUI, setShowGameOverUI] = useState(false);
+    const [playerName, setPlayerName] = useState('');
+    const [submitting, setSubmitting] = useState(false);
+    const [lobbyVotes, setLobbyVotes] = useState({});
+
+    const playerMeshes = useRef({}); // Includes local player and others
+    const obstacleMeshes = useRef({});
+
+    useEffect(() => {
+        if (!mountRef.current || !playerId) return;
+
+        const canvas = mountRef.current;
+        const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        const scene = new THREE.Scene();
+        scene.fog = new THREE.Fog(0x03111f, 30, 160);
+
+        const camera = new THREE.PerspectiveCamera(70, 1, 0.1, 300);
+        camera.position.set(0, 5.5, 10);
+        camera.lookAt(0, 0, 0);
+
+        const hemi = new THREE.HemisphereLight(0x66aaff, 0x001122, 0.6);
+        scene.add(hemi);
+        const dir = new THREE.DirectionalLight(0x66ddff, 0.9);
+        dir.position.set(20, 40, 10);
+        scene.add(dir);
+
+        const groundGroup = new THREE.Group();
+        scene.add(groundGroup);
+        const groundSegments = 40;
+        const segmentLen = 8;
+        const groundGeo = new THREE.BoxGeometry(14, 0.5, segmentLen);
+        const groundMats = [
+            new THREE.MeshStandardMaterial({ color: 0x04283f, metalness: 0.2, roughness: 0.8 }),
+            new THREE.MeshStandardMaterial({ color: 0x05314e, metalness: 0.25, roughness: 0.75 })
+        ];
+        for (let i = 0; i < groundSegments; i++) {
+            const tile = new THREE.Mesh(groundGeo, groundMats[i % 2]);
+            tile.position.set(0, -0.3, -i * segmentLen);
+            tile.receiveShadow = true;
+            groundGroup.add(tile);
+        }
+
+        if (!ws) return;
+
+        ws.onmessage = (event) => {
+            const message = JSON.parse(event.data);
+            if (message.roomId !== gameId) return;
+
+            if (message.type === 'gameState') {
+                const { players, obstacles, score } = message.payload;
+                updateScene(players, obstacles, score);
+            } else if (message.type === 'gameOver') {
+                setShowGameOverUI(true);
+                setLobbyVotes({}); // Reset lobby votes when game ends
+            } else if (message.type === 'lobbyVotes') {
+                setLobbyVotes(message.payload.votes);
+            } else if (message.type === 'returnToLobby') {
+                // All players voted to return to lobby
+                if (onReturnToLobby) {
+                    onReturnToLobby();
+                }
+            }
+        };
+
+        ws.onclose = () => console.log('Game WebSocket disconnected');
+        ws.onerror = (error) => console.error('Game WebSocket error:', error);
+
+        const updateScene = (players, obstacles, serverScore) => {
+            const allPlayerIds = new Set(Object.keys(players));
+
+            for (const id in playerMeshes.current) {
+                if (!allPlayerIds.has(id)) {
+                    scene.remove(playerMeshes.current[id]);
+                    delete playerMeshes.current[id];
+                }
+            }
+
+            for (const id in players) {
+                const p = players[id];
+                if (!p.alive) {
+                    if (playerMeshes.current[id]) {
+                        scene.remove(playerMeshes.current[id]);
+                        delete playerMeshes.current[id];
+                    }
+                    continue;
+                }
+
+                let mesh = playerMeshes.current[id];
+                if (!mesh) {
+                    const playerColor = new THREE.Color(p.color);
+                    const mat = new THREE.MeshStandardMaterial({ color: playerColor, emissive: playerColor, emissiveIntensity: 0.4, metalness: 0.3, roughness: 0.2 });
+                    mesh = new THREE.Mesh(ballGeo, mat);
+                    mesh.castShadow = true;
+                    scene.add(mesh);
+                    playerMeshes.current[id] = mesh;
+                }
+                mesh.position.set(p.x, p.y, p.z);
+            }
+
+            const allObstacleIds = new Set(obstacles.map(o => o.id));
+            for (const id in obstacleMeshes.current) {
+                if (!allObstacleIds.has(id)) {
+                    scene.remove(obstacleMeshes.current[id]);
+                    delete obstacleMeshes.current[id];
+                }
+            }
+
+            obstacles.forEach(o => {
+                let mesh = obstacleMeshes.current[o.id];
+                if (!mesh) {
+                    mesh = new THREE.Mesh(boxGeo, boxMat);
+                    mesh.castShadow = true;
+                    scene.add(mesh);
+                    obstacleMeshes.current[o.id] = mesh;
+                }
+                mesh.position.set(o.x, o.y, o.z);
+            });
+
+            setScore(serverScore);
+        };
+
+        const handleKeyDown = (e) => {
+            if (e.target.tagName === 'INPUT') return;
+
+            // Handle space key after game over to vote for returning to lobby
+            if (showGameOverUI && e.code === 'Space') {
+                if (ws && ws.readyState === WebSocket.OPEN) {
+                    ws.send(JSON.stringify({ roomId: gameId, playerId: playerId, action: 'returnToLobby' }));
+                }
+                return;
+            }
+
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                if (e.code === 'ArrowLeft' || e.code === 'KeyA') {
+                    ws.send(JSON.stringify({ roomId: gameId, playerId: playerId, action: 'input', payload: { input: 'left' } }));
+                }
+                if (e.code === 'ArrowRight' || e.code === 'KeyD') {
+                    ws.send(JSON.stringify({ roomId: gameId, playerId: playerId, action: 'input', payload: { input: 'right' } }));
+                }
+            }
+        };
+        window.addEventListener('keydown', handleKeyDown);
+
+        const onResize = () => {
+            const w = window.innerWidth;
+            const h = window.innerHeight;
+            renderer.setSize(w, h, false);
+            camera.aspect = w / h;
+            camera.updateProjectionMatrix();
+        };
+        window.addEventListener('resize', onResize);
+        onResize();
+
+        let animationId;
+        const animate = () => {
+            animationId = requestAnimationFrame(animate);
+            
+            const localPlayerMesh = playerMeshes.current[playerId];
+            if (localPlayerMesh) {
+                camera.position.x = localPlayerMesh.position.x;
+                camera.lookAt(localPlayerMesh.position);
+            }
+
+            renderer.render(scene, camera);
+        };
+        animate();
+
+        return () => {
+            window.removeEventListener('keydown', handleKeyDown);
+            window.removeEventListener('resize', onResize);
+            cancelAnimationFrame(animationId);
+            renderer.dispose();
+            // The WebSocket connection is managed by the App component, so we don't close it here.
+            // It will be closed when the user navigates away or the game ends.
+        };
+    }, [gameId, ballColor, playerId, nickname, ws]);
+
+    const handleSubmitScore = async () => {
+        if (!playerName.trim()) return;
+        setSubmitting(true);
+        await submitScore(playerName.trim(), score);
+        setSubmitting(false);
+        setShowGameOverUI(false);
+    };
+
+    return (
+        <div style={{ position: 'relative', width: '100%', height: '100vh', background: '#0a0f14' }}>
+            <canvas ref={mountRef} style={{ position: 'fixed', inset: 0, outline: 'none', width: '100%', height: '100%', objectFit: 'contain' }} tabIndex={0} />
+            <div style={{ position: 'fixed', left: 0, right: 0, top: 0, display: 'flex', justifyContent: 'space-between', padding: '12px 16px', color: '#e6f0ff', fontWeight: 600, pointerEvents: 'none', fontFamily: 'system-ui' }}>
+                <div style={{ fontSize: '20px' }}>Score: <span>{score}</span></div>
+                <button onClick={onShowLeaderboard} style={{ pointerEvents: 'auto', background: 'rgba(0,0,0,.5)', border: '1px solid rgba(255,255,255,.2)', borderRadius: '6px', padding: '6px 12px', cursor: 'pointer', color: '#e6f0ff', fontSize: '14px' }}>
+                    🏆 Leaderboard
+                </button>
+            </div>
+            {showGameOverUI && (
+                <div style={{ position: 'fixed', inset: 0, display: 'grid', placeItems: 'center', pointerEvents: 'none' }}>
+                    <div style={{ color: 'white', textAlign: 'center', background: 'rgba(0,0,0,.35)', backdropFilter: 'blur(6px)', padding: '16px 20px', borderRadius: '16px', pointerEvents: 'auto' }}>
+                        <h1 style={{ margin: '0 0 8px', fontSize: '24px' }}>Game Over</h1>
+                        <p style={{ margin: '6px 0' }}>Final Score: {score}</p>
+                        {score > 30 && (
+                            <div style={{ margin: '16px 0' }}>
+                                <input type="text" placeholder="Enter your name" value={playerName} onChange={(e) => setPlayerName(e.target.value)} maxLength={20} style={{ padding: '8px', borderRadius: '4px', border: '1px solid #ccc', marginRight: '8px' }} />
+                                <button onClick={handleSubmitScore} disabled={submitting || !playerName.trim()} style={{ padding: '8px 16px', background: '#00ffb3', border: 'none', borderRadius: '4px', color: '#000', cursor: 'pointer' }}>
+                                    {submitting ? 'Submitting...' : 'Submit'}
+                                </button>
+                            </div>
+                        )}
+                        <div style={{ margin: '16px 0' }}>
+                            <p style={{ margin: '6px 0', opacity: .7 }}>Press SPACE to return to lobby</p>
+                            {Object.keys(lobbyVotes).length > 0 && (
+                                <p style={{ margin: '6px 0', fontSize: '14px', opacity: .8 }}>
+                                    Players ready: {Object.keys(lobbyVotes).length}
+                                    {lobbyVotes[playerId] && ' (including you)'}
+                                </p>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+};
+
+export default MultiplayerGame;
