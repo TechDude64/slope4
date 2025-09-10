@@ -16,6 +16,8 @@ const MultiplayerGame = ({ ballColor, gameId, playerId, nickname, ws, onReturnTo
     const playerMeshes = useRef({}); // Includes local player and others
     const obstacleMeshes = useRef({});
     const trailMeshes = useRef({}); // Trail meshes for each player
+    const lastUpdateTime = useRef(Date.now());
+    const interpolationFactor = 0.1; // Smooth interpolation factor
 
     useEffect(() => {
         if (!mountRef.current || !playerId) return;
@@ -77,6 +79,14 @@ const MultiplayerGame = ({ ballColor, gameId, playerId, nickname, ws, onReturnTo
         ws.onerror = (error) => console.error('Game WebSocket error:', error);
 
         const updateScene = (players, obstacles, serverScore) => {
+            const currentTime = Date.now();
+            const timeSinceLastUpdate = currentTime - lastUpdateTime.current;
+
+            // Throttle updates to prevent excessive rendering (max 30 FPS for scene updates)
+            if (timeSinceLastUpdate < 33) return;
+
+            lastUpdateTime.current = currentTime;
+
             const allPlayerIds = new Set(Object.keys(players));
 
             // Clean up meshes for players who left
@@ -114,31 +124,50 @@ const MultiplayerGame = ({ ballColor, gameId, playerId, nickname, ws, onReturnTo
                     scene.add(mesh);
                     playerMeshes.current[id] = mesh;
 
-                    // Create trail for new player
+                    // Store target position for interpolation
+                    mesh.userData.targetPosition = new THREE.Vector3(p.x, p.y, p.z);
+                    mesh.userData.lastServerPosition = new THREE.Vector3(p.x, p.y, p.z);
+
+                    // Create trail for new player with optimized geometry
                     const trailPoints = [];
-                    const trailLength = 10;
+                    const trailLength = 8; // Reduced trail length for performance
                     for (let i = 0; i < trailLength; i++) {
                         trailPoints.push(new THREE.Vector3(p.x, p.y - 0.5, p.z));
                     }
                     const trailCurve = new THREE.CatmullRomCurve3(trailPoints);
-                    const trailGeo = new THREE.TubeGeometry(trailCurve, 64, 0.2, 8, false);
+                    const trailGeo = new THREE.TubeGeometry(trailCurve, 32, 0.15, 6, false); // Reduced segments for performance
                     const trailMat = new THREE.MeshBasicMaterial({ color: 0x00d6ff, transparent: true, opacity: 0.25, side: THREE.DoubleSide });
                     const trailMesh = new THREE.Mesh(trailGeo, trailMat);
                     scene.add(trailMesh);
-                    trailMeshes.current[id] = { mesh: trailMesh, points: trailPoints };
+                    trailMeshes.current[id] = {
+                        mesh: trailMesh,
+                        points: trailPoints,
+                        lastUpdateTime: currentTime,
+                        updateInterval: 100 // Update trail every 100ms instead of every frame
+                    };
                 }
-                mesh.position.set(p.x, p.y, p.z);
 
-                // Update trail
+                // Update target position for interpolation
+                if (mesh.userData.targetPosition) {
+                    mesh.userData.lastServerPosition.copy(mesh.userData.targetPosition);
+                    mesh.userData.targetPosition.set(p.x, p.y, p.z);
+                } else {
+                    mesh.position.set(p.x, p.y, p.z);
+                }
+
+                // Update trail less frequently for performance
                 if (trailMeshes.current[id]) {
                     const trailData = trailMeshes.current[id];
-                    trailData.points.forEach(point => point.z += 0.1); // Move trail forward
-                    const oldestPoint = trailData.points.shift();
-                    oldestPoint.copy(mesh.position).add(new THREE.Vector3(0, -0.5, 0));
-                    trailData.points.push(oldestPoint);
-                    const updatedCurve = new THREE.CatmullRomCurve3(trailData.points);
-                    trailData.mesh.geometry.dispose();
-                    trailData.mesh.geometry = new THREE.TubeGeometry(updatedCurve, 64, 0.2, 8, false);
+                    if (currentTime - trailData.lastUpdateTime > trailData.updateInterval) {
+                        trailData.lastUpdateTime = currentTime;
+                        trailData.points.forEach(point => point.z += 0.1);
+                        const oldestPoint = trailData.points.shift();
+                        oldestPoint.copy(mesh.position).add(new THREE.Vector3(0, -0.5, 0));
+                        trailData.points.push(oldestPoint);
+                        const updatedCurve = new THREE.CatmullRomCurve3(trailData.points);
+                        trailData.mesh.geometry.dispose();
+                        trailData.mesh.geometry = new THREE.TubeGeometry(updatedCurve, 32, 0.15, 6, false);
+                    }
                 }
             }
 
@@ -191,7 +220,16 @@ const MultiplayerGame = ({ ballColor, gameId, playerId, nickname, ws, onReturnTo
         let animationId;
         const animate = () => {
             animationId = requestAnimationFrame(animate);
-            
+
+            // Interpolate player positions for smooth movement
+            for (const id in playerMeshes.current) {
+                const mesh = playerMeshes.current[id];
+                if (mesh && mesh.userData.targetPosition) {
+                    // Smooth interpolation towards target position
+                    mesh.position.lerp(mesh.userData.targetPosition, interpolationFactor);
+                }
+            }
+
             const localPlayerMesh = playerMeshes.current[playerId];
             if (localPlayerMesh) {
                 camera.position.x = localPlayerMesh.position.x;

@@ -30,6 +30,8 @@ const Game = ({ onShowLeaderboard, ballColor, gameId }) => {
   const obstacleMeshes = useRef({}); // Ref for multiplayer obstacle meshes
   const isMultiplayer = !!gameId;
   const ws = useRef(null); // WebSocket connection reference
+  const lastUpdateTime = useRef(Date.now());
+  const interpolationFactor = 0.15; // Smooth interpolation factor for other players
 
   // Effect to manage other player meshes - moved to top level
   const updateOtherPlayerMeshes = useCallback((scene) => {
@@ -459,6 +461,39 @@ const Game = ({ onShowLeaderboard, ballColor, gameId }) => {
       // Update other player meshes based on real-time data
       if (isMultiplayer) {
         updateOtherPlayerMeshes(scene); // Pass scene
+
+        // Interpolate other player positions for smooth movement
+        const currentTime = Date.now();
+        const timeSinceLastUpdate = currentTime - lastUpdateTime.current;
+
+        // Update interpolation targets periodically
+        if (timeSinceLastUpdate > 50) { // Update targets every 50ms
+          lastUpdateTime.current = currentTime;
+
+          // Set interpolation targets for other players
+          for (const id in otherPlayerMeshesRef.current) {
+            const mesh = otherPlayerMeshesRef.current[id];
+            const playerState = otherPlayersRef.current[id];
+
+            if (mesh && playerState && playerState.alive) {
+              if (!mesh.userData.targetPosition) {
+                mesh.userData.targetPosition = new THREE.Vector3();
+                mesh.userData.currentPosition = new THREE.Vector3();
+              }
+
+              mesh.userData.targetPosition.set(playerState.x, playerState.y, playerState.z || 0);
+              mesh.userData.currentPosition.copy(mesh.position);
+            }
+          }
+        }
+
+        // Apply interpolation
+        for (const id in otherPlayerMeshesRef.current) {
+          const mesh = otherPlayerMeshesRef.current[id];
+          if (mesh && mesh.userData.targetPosition) {
+            mesh.position.lerp(mesh.userData.targetPosition, interpolationFactor);
+          }
+        }
       }
 
       camera.position.x = player.position.x;
